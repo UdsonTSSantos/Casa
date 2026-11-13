@@ -1,0 +1,5 @@
+# Impede a listagem de diretórios
+Options -Indexes
+
+# Define a codificação padrão
+AddDefaultCharset UTF-8

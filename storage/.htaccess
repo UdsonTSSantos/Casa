@@ -1,0 +1,4 @@
+# Bloqueia qualquer acesso a arquivos .db ou .sqlite
+<FilesMatch "\.(db|sqlite|sqlite3)$">
+    Require all denied
+</FilesMatch>
