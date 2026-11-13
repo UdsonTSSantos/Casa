@@ -123,7 +123,7 @@ class Database {
             )
         ");
 
-        // 5. CIF (NOVA - Com CNPJ Único)
+        // 5. CIF
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS cifs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,6 +147,31 @@ class Database {
                 contato_ramal TEXT,
                 email TEXT,
                 email_danfe TEXT,
+                observacao TEXT,
+                ativo INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ");
+
+        // 6. Transportadoras (NOVA)
+        $this->pdo->exec("
+            CREATE TABLE IF NOT EXISTS transportadoras (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                razao_social TEXT NOT NULL,
+                telefones TEXT,
+                endereco TEXT,
+                complemento TEXT,
+                bairro TEXT,
+                cidade TEXT,
+                cep TEXT,
+                uf TEXT,
+                contato TEXT,
+                telefone TEXT,
+                celular TEXT,
+                o800 TEXT,
+                cnpj TEXT UNIQUE,
+                inscricao TEXT,
+                email TEXT,
                 observacao TEXT,
                 ativo INTEGER DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
