@@ -83,13 +83,12 @@ class Database {
             )
         ");
 
-        // 3. Materiais
+        // 3. Materiais (NOVO - Sem código, com Medida)
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS materiais (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                codigo TEXT UNIQUE NOT NULL,
                 descricao TEXT NOT NULL,
-                unidade TEXT NOT NULL,
+                medida TEXT NOT NULL,
                 preco_unitario REAL DEFAULT 0.00,
                 ipi REAL DEFAULT 0.00,
                 icms REAL DEFAULT 0.00,
@@ -153,7 +152,7 @@ class Database {
             )
         ");
 
-        // 6. Transportadoras (NOVA)
+        // 6. Transportadoras
         $this->pdo->exec("
             CREATE TABLE IF NOT EXISTS transportadoras (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

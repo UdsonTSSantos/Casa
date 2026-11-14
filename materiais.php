@@ -15,31 +15,29 @@ $material_edicao = null;
 
 // 1. Criar Material
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'criar') {
-    $codigo = trim($_POST['codigo']);
     $descricao = trim($_POST['descricao']);
-    $unidade = trim($_POST['unidade']);
+    $medida = trim($_POST['medida']);
     
-    // Limpa a máscara de moeda (R$ 1.234,56 -> 1234.56)
-    $preco_unitario = str_replace(['R$ ', '.', ','], ['', '', '.'], $_POST['preco_unitario']);
+    // Limpa a máscara de moeda (1.234,56 -> 1234.56)
+    $preco_unitario = str_replace(['.', ','], ['', '.'], $_POST['preco_unitario']);
     if(empty($preco_unitario)) $preco_unitario = 0.00;
     
-    // Limpa a máscara de porcentagem (5,00 -> 5.00)
     $ipi = str_replace(['%', ',', ' '], ['', '.', ''], $_POST['ipi']);
     if(empty($ipi)) $ipi = 0.00;
 
     $icms = str_replace(['%', ',', ' '], ['', '.', ''], $_POST['icms']);
     if(empty($icms)) $icms = 0.00;
 
-    if ($codigo && $descricao && $unidade) {
+    if ($descricao && $medida) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO materiais (codigo, descricao, unidade, preco_unitario, ipi, icms, ativo) VALUES (?, ?, ?, ?, ?, ?, 1)");
-            $stmt->execute([$codigo, $descricao, $unidade, (float)$preco_unitario, (float)$ipi, (float)$icms]);
+            $stmt = $pdo->prepare("INSERT INTO materiais (descricao, medida, preco_unitario, ipi, icms, ativo) VALUES (?, ?, ?, ?, ?, 1)");
+            $stmt->execute([$descricao, $medida, (float)$preco_unitario, (float)$ipi, (float)$icms]);
             $_SESSION['sucesso'] = "Material cadastrado com sucesso!";
         } catch (PDOException $e) {
-            $_SESSION['erro'] = "Erro: O código do material já está cadastrado.";
+            $_SESSION['erro'] = "Erro ao cadastrar o material.";
         }
     } else {
-        $_SESSION['erro'] = "Preencha os campos obrigatórios (Código, Descrição e Unidade).";
+        $_SESSION['erro'] = "Preencha os campos obrigatórios (Descrição e Medida).";
     }
     header("Location: materiais.php");
     exit;
@@ -57,11 +55,10 @@ if (isset($_GET['toggle'])) {
 // 3. Editar Material
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'editar') {
     $id_edit = (int)$_POST['id'];
-    $codigo = trim($_POST['codigo_edit']);
     $descricao = trim($_POST['descricao_edit']);
-    $unidade = trim($_POST['unidade_edit']);
+    $medida = trim($_POST['medida_edit']);
     
-    $preco_unitario = str_replace(['R$ ', '.', ','], ['', '', '.'], $_POST['preco_unitario_edit']);
+    $preco_unitario = str_replace(['.', ','], ['', '.'], $_POST['preco_unitario_edit']);
     if(empty($preco_unitario)) $preco_unitario = 0.00;
     
     $ipi = str_replace(['%', ',', ' '], ['', '.', ''], $_POST['ipi_edit']);
@@ -71,11 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if(empty($icms)) $icms = 0.00;
     
     try {
-        $stmt = $pdo->prepare("UPDATE materiais SET codigo = ?, descricao = ?, unidade = ?, preco_unitario = ?, ipi = ?, icms = ? WHERE id = ?");
-        $stmt->execute([$codigo, $descricao, $unidade, (float)$preco_unitario, (float)$ipi, (float)$icms, $id_edit]);
+        $stmt = $pdo->prepare("UPDATE materiais SET descricao = ?, medida = ?, preco_unitario = ?, ipi = ?, icms = ? WHERE id = ?");
+        $stmt->execute([$descricao, $medida, (float)$preco_unitario, (float)$ipi, (float)$icms, $id_edit]);
         $_SESSION['sucesso'] = "Material atualizado com sucesso!";
     } catch (PDOException $e) {
-        $_SESSION['erro'] = "Erro ao atualizar: O código já está em uso.";
+        $_SESSION['erro'] = "Erro ao atualizar o material.";
     }
     header("Location: materiais.php");
     exit;
@@ -89,21 +86,40 @@ if (isset($_GET['edit'])) {
     $material_edicao = $stmt->fetch();
 }
 
-// Filtro de Busca
+// --- PAGINAÇÃO E BUSCA ---
 $busca = isset($_GET['busca']) ? trim($_GET['busca']) : '';
-$sql = "SELECT * FROM materiais WHERE 1=1";
+$pagina_atual = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($pagina_atual < 1) $pagina_atual = 1;
+$limite = 10;
+$offset = ($pagina_atual - 1) * $limite;
+
+$sql_where = " WHERE 1=1";
 $params = [];
 
 if ($busca) {
-    $sql .= " AND (descricao LIKE ? OR codigo LIKE ?)";
-    $params[] = "%$busca%";
+    $sql_where .= " AND descricao LIKE ?";
     $params[] = "%$busca%";
 }
 
-$sql .= " ORDER BY descricao ASC";
+$stmtCount = $pdo->prepare("SELECT COUNT(*) FROM materiais" . $sql_where);
+$stmtCount->execute($params);
+$total_registros = $stmtCount->fetchColumn();
+$total_paginas = ceil($total_registros / $limite);
+
+$sql = "SELECT * FROM materiais" . $sql_where . " ORDER BY descricao ASC LIMIT $limite OFFSET $offset";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $materiais = $stmt->fetchAll();
+
+if (!function_exists('urlPagina')) {
+    function urlPagina($num) {
+        global $busca;
+        $q = [];
+        if ($busca) $q['busca'] = $busca;
+        $q['page'] = $num;
+        return 'materiais.php?' . http_build_query($q);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -114,9 +130,7 @@ $materiais = $stmt->fetchAll();
     <title>Materiais - Casa Forte</title>
     <link rel="icon" type="image/png" href="assets/ast7_logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
     <script src="https://unpkg.com/imask"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -127,17 +141,23 @@ $materiais = $stmt->fetchAll();
                 }
             }
         }
+        
+        function imprimirSelecionados() {
+            const checkboxes = document.querySelectorAll('.chk-material:checked');
+            if (checkboxes.length === 0) {
+                alert('Por favor, selecione pelo menos um material para imprimir.');
+                return;
+            }
+            let ids = [];
+            checkboxes.forEach(cb => ids.push(cb.value));
+            window.open('relatorio_materiais.php?ids=' + ids.join(','), '_blank');
+        }
     </script>
     <style>
         input:not(:placeholder-shown) { background-color: #F3F4F6 !important; }
         input:focus, textarea:focus { background-color: #FFFFFF !important; }
         .form-label { font-size: 0.7rem; text-transform: uppercase; color: #4B5563; font-weight: 700; letter-spacing: 0.05em; }
-        
-        ::placeholder {
-            color: #D1D5DB !important;
-            font-size: 0.75rem !important;
-            text-transform: lowercase !important;
-        }
+        ::placeholder { color: #D1D5DB !important; font-size: 0.75rem !important; text-transform: lowercase !important; }
     </style>
 </head>
 <body class="bg-bg-main min-h-screen flex flex-col font-sans text-text-main text-base">
@@ -159,33 +179,31 @@ $materiais = $stmt->fetchAll();
         <!-- FORMULÁRIO NO TOPO -->
         <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-8">
             <h2 class="text-lg font-bold text-gray-800 mb-4">Cadastrar Novo Material</h2>
-            <!-- Alteração no Grid: Código (2), Descrição (5), Unidade (1), Preço (1), IPI (1), ICMS (1), Botão (1) = 12 -->
             <form method="POST" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                 <input type="hidden" name="action" value="criar">
                 
-                <div class="md:col-span-2">
-                    <label class="form-label block mb-1">Código / Ref.</label>
-                    <input type="text" name="codigo" required placeholder="Ex: BPP-GL-001" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
-                </div>
-                <div class="md:col-span-5">
+                <div class="md:col-span-6">
                     <label class="form-label block mb-1">Descrição do Material</label>
                     <input type="text" name="descricao" required placeholder="Ex: Chapa de Aço 1020" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
                 </div>
-                <div class="md:col-span-1">
-                    <label class="form-label block mb-1">Unid.</label>
-                    <input type="text" name="unidade" required placeholder="KG, UN..." class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
+                <div class="md:col-span-2">
+                    <label class="form-label block mb-1">Medida</label>
+                    <!-- Valor padrão KGS -->
+                    <input type="text" name="medida" required value="KGS" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
                 </div>
                 <div class="md:col-span-1">
                     <label class="form-label block mb-1">R$ Unit.</label>
-                    <input type="text" name="preco_unitario" id="preco_unitario" placeholder="R$ 0,00" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <input type="text" name="preco_unitario" id="preco_unitario" placeholder="0,00" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
                 <div class="md:col-span-1">
                     <label class="form-label block mb-1">% IPI</label>
-                    <input type="text" name="ipi" id="ipi" placeholder="0,00%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Valor padrão 3,25% -->
+                    <input type="text" name="ipi" id="ipi" value="3,25%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
                 <div class="md:col-span-1">
                     <label class="form-label block mb-1">% ICMS</label>
-                    <input type="text" name="icms" id="icms" placeholder="0,00%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Valor padrão 4,00% -->
+                    <input type="text" name="icms" id="icms" value="4,00%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
 
                 <div class="md:col-span-1">
@@ -201,19 +219,34 @@ $materiais = $stmt->fetchAll();
             <div class="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h2 class="text-lg font-bold text-gray-800">Materiais Cadastrados</h2>
                 
-                <form method="GET" class="flex gap-2 w-full md:w-auto">
-                    <input type="text" name="busca" value="<?= htmlspecialchars($busca) ?>" placeholder="buscar por código ou descrição..." class="px-3 py-1.5 border border-gray-300 rounded text-sm font-semibold w-full md:w-80">
-                    <button type="submit" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded hover:bg-gray-300 font-bold text-sm transition-colors">Buscar</button>
-                </form>
+                <div class="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+                    <form method="GET" class="flex gap-2 w-full md:w-auto">
+                        <input type="text" name="busca" value="<?= htmlspecialchars($busca) ?>" placeholder="buscar por descrição..." class="px-3 py-1.5 border border-gray-300 rounded text-sm font-semibold w-full md:w-64">
+                        <button type="submit" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded hover:bg-gray-300 font-bold text-sm transition-colors">Buscar</button>
+                    </form>
+                    
+                    <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                        <button onclick="imprimirSelecionados()" class="bg-gray-700 text-white px-4 py-1.5 rounded hover:bg-gray-800 font-bold text-sm transition-colors flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                            Imprimir Selecionados
+                        </button>
+                        <a href="relatorio_materiais.php?todos=1" target="_blank" class="bg-brand-blue text-white px-4 py-1.5 rounded hover:bg-blue-900 font-bold text-sm transition-colors flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                            Imprimir Todos
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="border-b-2 border-gray-300 text-gray-700 bg-gray-100">
-                            <th class="py-2 px-3 font-bold">Código</th>
-                            <th class="py-2 px-3 font-bold w-1/3">Descrição</th>
-                            <th class="py-2 px-3 font-bold text-center">Unid.</th>
+                            <th class="py-2 px-3 w-10 text-center">
+                                <input type="checkbox" id="checkAll" class="w-4 h-4 cursor-pointer" onclick="document.querySelectorAll('.chk-material').forEach(c => c.checked = this.checked)">
+                            </th>
+                            <th class="py-2 px-3 font-bold w-1/2">Descrição</th>
+                            <th class="py-2 px-3 font-bold text-center">Medida</th>
                             <th class="py-2 px-3 font-bold text-right">R$ Unitário</th>
                             <th class="py-2 px-3 font-bold text-right">% IPI</th>
                             <th class="py-2 px-3 font-bold text-right">% ICMS</th>
@@ -224,12 +257,15 @@ $materiais = $stmt->fetchAll();
                     <tbody>
                         <?php foreach($materiais as $m): ?>
                         <tr class="border-b border-gray-200 hover:bg-blue-50 transition-colors <?= $m['ativo'] == 0 ? 'opacity-60 bg-gray-100' : '' ?>">
-                            <td class="py-2 px-3 font-semibold text-gray-800"><?= htmlspecialchars($m['codigo']) ?></td>
+                            <td class="py-2 px-3 text-center">
+                                <input type="checkbox" class="chk-material w-4 h-4 cursor-pointer" value="<?= $m['id'] ?>">
+                            </td>
                             <td class="py-2 px-3 text-gray-700 font-medium"><?= htmlspecialchars($m['descricao']) ?></td>
-                            <td class="py-2 px-3 text-gray-600 text-center"><?= htmlspecialchars($m['unidade']) ?></td>
-                            <td class="py-2 px-3 text-gray-600 text-right">R$ <?= number_format($m['preco_unitario'], 2, ',', '.') ?></td>
-                            <td class="py-2 px-3 text-gray-600 text-right"><?= number_format($m['ipi'], 2, ',', '.') ?>%</td>
-                            <td class="py-2 px-3 text-gray-600 text-right"><?= number_format($m['icms'], 2, ',', '.') ?>%</td>
+                            <td class="py-2 px-3 text-gray-600 text-center"><?= htmlspecialchars($m['medida']) ?></td>
+                            <!-- Lógica para deixar cinza claro se for zero -->
+                            <td class="py-2 px-3 text-right <?= $m['preco_unitario'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['preco_unitario'], 2, ',', '.') ?></td>
+                            <td class="py-2 px-3 text-right <?= $m['ipi'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['ipi'], 2, ',', '.') ?>%</td>
+                            <td class="py-2 px-3 text-right <?= $m['icms'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['icms'], 2, ',', '.') ?>%</td>
                             <td class="py-2 px-3 text-center">
                                 <?php if($m['ativo']): ?>
                                     <span class="text-green-600 font-bold">Ativo</span>
@@ -255,6 +291,28 @@ $materiais = $stmt->fetchAll();
                     </tbody>
                 </table>
             </div>
+            
+            <!-- PAGINAÇÃO -->
+            <?php if($total_paginas > 1): ?>
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6">
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a <span class="font-medium"><?= min($offset + $limite, $total_registros) ?></span> de <span class="font-medium"><?= $total_registros ?></span> resultados
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                            <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
+                            <?php for($i = 1; $i <= $total_paginas; $i++): ?>
+                                <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
+                            <?php endfor; ?>
+                            <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </main>
 
@@ -265,34 +323,31 @@ $materiais = $stmt->fetchAll();
             
             <a href="materiais.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</a>
             
-            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Editar Material: <?= htmlspecialchars($material_edicao['codigo']) ?></h2>
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Editar Material</h2>
             
             <form method="POST" class="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <input type="hidden" name="action" value="editar">
                 <input type="hidden" name="id" value="<?= $material_edicao['id'] ?>">
                 
-                <div class="md:col-span-3">
-                    <label class="form-label block mb-1">Código / Ref.</label>
-                    <input type="text" name="codigo_edit" required value="<?= htmlspecialchars($material_edicao['codigo']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
-                </div>
                 <div class="md:col-span-9">
                     <label class="form-label block mb-1">Descrição do Material</label>
                     <input type="text" name="descricao_edit" required value="<?= htmlspecialchars($material_edicao['descricao']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
                 </div>
                 
-                <div class="md:col-span-2">
-                    <label class="form-label block mb-1">Unidade</label>
-                    <input type="text" name="unidade_edit" required value="<?= htmlspecialchars($material_edicao['unidade']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
-                </div>
-                <div class="md:col-span-4">
-                    <label class="form-label block mb-1">R$ Unitário</label>
-                    <input type="text" name="preco_unitario_edit" id="preco_unitario_edit" value="R$ <?= number_format($material_edicao['preco_unitario'], 2, ',', '.') ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
-                </div>
                 <div class="md:col-span-3">
+                    <label class="form-label block mb-1">Medida</label>
+                    <input type="text" name="medida_edit" required value="<?= htmlspecialchars($material_edicao['medida']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold uppercase">
+                </div>
+
+                <div class="md:col-span-4 mt-2">
+                    <label class="form-label block mb-1">R$ Unitário</label>
+                    <input type="text" name="preco_unitario_edit" id="preco_unitario_edit" value="<?= number_format($material_edicao['preco_unitario'], 2, ',', '.') ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                </div>
+                <div class="md:col-span-4 mt-2">
                     <label class="form-label block mb-1">% IPI</label>
                     <input type="text" name="ipi_edit" id="ipi_edit" value="<?= number_format($material_edicao['ipi'], 2, ',', '.') ?>%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
-                <div class="md:col-span-3">
+                <div class="md:col-span-4 mt-2">
                     <label class="form-label block mb-1">% ICMS</label>
                     <input type="text" name="icms_edit" id="icms_edit" value="<?= number_format($material_edicao['icms'], 2, ',', '.') ?>%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
@@ -317,7 +372,7 @@ $materiais = $stmt->fetchAll();
         document.addEventListener('DOMContentLoaded', function() {
             
             const currencyMaskOptions = {
-                mask: 'R$ num',
+                mask: 'num',
                 blocks: {
                     num: {
                         mask: Number,
