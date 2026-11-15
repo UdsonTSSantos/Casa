@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $preco_unitario = str_replace(['.', ','], ['', '.'], $_POST['preco_unitario']);
     if(empty($preco_unitario)) $preco_unitario = 0.00;
     
+    // Limpa a máscara de porcentagem (3,25% -> 3.25)
     $ipi = str_replace(['%', ',', ' '], ['', '.', ''], $_POST['ipi']);
     if(empty($ipi)) $ipi = 0.00;
 
@@ -197,13 +198,13 @@ if (!function_exists('urlPagina')) {
                 </div>
                 <div class="md:col-span-1">
                     <label class="form-label block mb-1">% IPI</label>
-                    <!-- Valor padrão 3,25% -->
-                    <input type="text" name="ipi" id="ipi" value="3,25%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Valor padrão 3,25 (sem o %) -->
+                    <input type="text" name="ipi" id="ipi" value="3,25" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
                 <div class="md:col-span-1">
                     <label class="form-label block mb-1">% ICMS</label>
-                    <!-- Valor padrão 4,00% -->
-                    <input type="text" name="icms" id="icms" value="4,00%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Valor padrão 4,00 (sem o %) -->
+                    <input type="text" name="icms" id="icms" value="4,00" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
 
                 <div class="md:col-span-1">
@@ -262,7 +263,6 @@ if (!function_exists('urlPagina')) {
                             </td>
                             <td class="py-2 px-3 text-gray-700 font-medium"><?= htmlspecialchars($m['descricao']) ?></td>
                             <td class="py-2 px-3 text-gray-600 text-center"><?= htmlspecialchars($m['medida']) ?></td>
-                            <!-- Lógica para deixar cinza claro se for zero -->
                             <td class="py-2 px-3 text-right <?= $m['preco_unitario'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['preco_unitario'], 2, ',', '.') ?></td>
                             <td class="py-2 px-3 text-right <?= $m['ipi'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['ipi'], 2, ',', '.') ?>%</td>
                             <td class="py-2 px-3 text-right <?= $m['icms'] > 0 ? 'text-gray-600' : 'text-gray-300' ?>"><?= number_format($m['icms'], 2, ',', '.') ?>%</td>
@@ -345,11 +345,13 @@ if (!function_exists('urlPagina')) {
                 </div>
                 <div class="md:col-span-4 mt-2">
                     <label class="form-label block mb-1">% IPI</label>
-                    <input type="text" name="ipi_edit" id="ipi_edit" value="<?= number_format($material_edicao['ipi'], 2, ',', '.') ?>%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Removido o % de dentro do value -->
+                    <input type="text" name="ipi_edit" id="ipi_edit" value="<?= number_format($material_edicao['ipi'], 2, ',', '.') ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
                 <div class="md:col-span-4 mt-2">
                     <label class="form-label block mb-1">% ICMS</label>
-                    <input type="text" name="icms_edit" id="icms_edit" value="<?= number_format($material_edicao['icms'], 2, ',', '.') ?>%" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
+                    <!-- Removido o % de dentro do value -->
+                    <input type="text" name="icms_edit" id="icms_edit" value="<?= number_format($material_edicao['icms'], 2, ',', '.') ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand-blue font-semibold text-right">
                 </div>
 
                 <div class="md:col-span-12 pt-4 border-t border-gray-200 mt-4 flex justify-end gap-3">
