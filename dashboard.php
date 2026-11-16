@@ -1,9 +1,40 @@
 <?php
 // dashboard.php
 session_start();
+require_once __DIR__ . '/src/Database.php';
+
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
     exit;
+}
+
+$pdo = Database::getInstance();
+
+// --- LÓGICA DO GRÁFICO DE VENDAS ---
+// Pega o ano e mês atual
+$mes_atual = date('m');
+$ano_atual = date('Y');
+
+// Busca o total de vendas por dia no mês atual
+$stmt = $pdo->prepare("
+    SELECT strftime('%d', data_pedido) as dia, SUM(total_com_imposto) as total
+    FROM pedidos
+    WHERE strftime('%Y-%m', data_pedido) = ?
+    GROUP BY dia
+    ORDER BY dia ASC
+");
+$stmt->execute(["$ano_atual-$mes_atual"]);
+$vendas_por_dia = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // Retorna ['01' => 1500.00, '02' => 2300.00]
+
+// Prepara os arrays para o Chart.js (preenchendo todos os dias do mês com 0 se não houver venda)
+$dias_no_mes = (int)date('t');
+$labels_grafico = [];
+$valores_grafico = [];
+
+for ($i = 1; $i <= $dias_no_mes; $i++) {
+    $dia_formatado = str_pad($i, 2, '0', STR_PAD_LEFT);
+    $labels_grafico[] = $dia_formatado . '/' . $mes_atual;
+    $valores_grafico[] = isset($vendas_por_dia[$dia_formatado]) ? (float)$vendas_por_dia[$dia_formatado] : 0;
 }
 ?>
 <!DOCTYPE html>
@@ -15,6 +46,10 @@ if (!isset($_SESSION['usuario_id'])) {
     <title>Dashboard - Casa Forte</title>
     <link rel="icon" type="image/png" href="assets/ast7_logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Biblioteca Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -33,6 +68,7 @@ if (!isset($_SESSION['usuario_id'])) {
 </head>
 <body class="bg-bg-main min-h-screen flex flex-col font-sans text-text-main text-base">
 
+    <!-- Topbar -->
     <header class="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
         <img src="assets/ast7_logo.png" alt="AST7" class="h-10">
         <div class="flex items-center gap-4">
@@ -47,9 +83,9 @@ if (!isset($_SESSION['usuario_id'])) {
     <main class="flex-grow p-6 md:p-10 max-w-7xl mx-auto w-full">
         <h1 class="text-3xl font-bold text-gray-800 mb-8">Menu Principal</h1>
 
+        <!-- Grid de Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             
-            <!-- Card: Pedidos / Orçamentos -->
             <a href="pedidos.php" class="bg-[#334155] hover:bg-[#475569] text-white p-6 rounded-lg shadow-md transition-all duration-200 hover:-translate-y-1 flex items-center gap-4">
                 <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <div><h3 class="font-bold text-lg">Pedidos / Orçamentos</h3></div>
@@ -93,8 +129,101 @@ if (!isset($_SESSION['usuario_id'])) {
             <?php endif; ?>
 
         </div>
+
+        <!-- GRÁFICO DE VENDAS (Aparece apenas em telas >= 1366px) -->
+        <div class="hidden min-[1366px]:block mt-10 bg-white p-6 rounded-xl shadow-md border border-gray-200">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Desempenho de Vendas</h2>
+                    <p class="text-sm text-gray-500">Total de pedidos realizados no mês de <?= date('F') ?>.</p>
+                </div>
+                <div class="bg-blue-50 text-brand-blue px-4 py-2 rounded-lg border border-blue-100 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <span class="font-bold text-lg">R$ <?= number_format(array_sum($valores_grafico), 2, ',', '.') ?></span>
+                </div>
+            </div>
+            
+            <div class="relative h-[350px] w-full">
+                <canvas id="graficoVendas"></canvas>
+            </div>
+        </div>
+
     </main>
 
     <?php include 'footer.php'; ?>
+
+    <!-- SCRIPT DO GRÁFICO -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Só inicializa o gráfico se o elemento existir (ou seja, se a tela for > 1366px)
+            const canvas = document.getElementById('graficoVendas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                
+                // Dados vindos do PHP
+                const labels = <?= json_encode($labels_grafico) ?>;
+                const dataValues = <?= json_encode($valores_grafico) ?>;
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Total de Vendas (R$)',
+                            data: dataValues,
+                            borderColor: '#003B73', // brand-blue
+                            backgroundColor: 'rgba(0, 59, 115, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4, // Deixa a linha curvada (smooth)
+                            fill: true, // Preenche a área abaixo da linha
+                            pointBackgroundColor: '#003B73',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#f3f4f6'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toLocaleString('pt-BR');
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false // Esconde a legenda padrão
+                            },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                padding: 12,
+                                titleFont: { size: 14, family: 'Inter' },
+                                bodyFont: { size: 14, family: 'Inter' },
+                                callbacks: {
+                                    label: function(context) {
+                                        return ' Total: R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

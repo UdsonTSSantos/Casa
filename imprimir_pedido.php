@@ -297,7 +297,7 @@ function moeda($valor) {
                     <?= moeda($pedido['total_com_imposto']) ?>
                 </div>
                 <div style="font-size: 8px; max-width: 150px; text-align: left; color: #666;">
-                    * O valor total c/ imposto é igual a soma do valor sem o imposto + a base de cálculo das alíquotas de imposto, caso as alíquotas não sejam informadas os valores serão iguais.
+                    * 
                 </div>
             </div>
             <div class="totais-dir">

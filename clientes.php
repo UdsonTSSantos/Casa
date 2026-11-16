@@ -203,6 +203,22 @@ if (!function_exists('urlPagina')) {
         return 'clientes.php?' . http_build_query($q);
     }
 }
+
+// --- LÓGICA DA PAGINAÇÃO INTELIGENTE ---
+$adjacents = 2; // Quantos links mostrar antes e depois da página atual
+$start = $pagina_atual - $adjacents;
+$end = $pagina_atual + $adjacents;
+
+if ($start < 1) {
+    $end += abs($start) + 1;
+    $start = 1;
+}
+
+if ($end > $total_paginas) {
+    $start -= ($end - $total_paginas);
+    $end = $total_paginas;
+}
+if ($start < 1) $start = 1;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -313,24 +329,43 @@ if (!function_exists('urlPagina')) {
                 </table>
             </div>
             
-            <!-- PAGINAÇÃO -->
+            <!-- PAGINAÇÃO INTELIGENTE -->
             <?php if($total_paginas > 1): ?>
-            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6">
-                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                        <p class="text-sm text-gray-700">
-                            Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a <span class="font-medium"><?= min($offset + $limite, $total_registros) ?></span> de <span class="font-medium"><?= $total_registros ?></span> resultados
-                        </p>
-                    </div>
-                    <div>
-                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                            <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
-                            <?php for($i = 1; $i <= $total_paginas; $i++): ?>
-                                <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
-                            <?php endfor; ?>
-                            <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
-                        </nav>
-                    </div>
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4 sm:px-6">
+                <div class="w-full md:w-auto text-center md:text-left">
+                    <p class="text-sm text-gray-700">
+                        Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a <span class="font-medium"><?= min($offset + $limite, $total_registros) ?></span> de <span class="font-medium"><?= $total_registros ?></span> resultados
+                    </p>
+                </div>
+                <div class="w-full md:w-auto overflow-x-auto">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <!-- Anterior -->
+                        <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
+                        
+                        <!-- Primeira Página e Reticências -->
+                        <?php if($start > 1): ?>
+                            <a href="<?= urlPagina(1) ?>" class="<?= 1 == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">1</a>
+                            <?php if($start > 2): ?>
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
+                        <!-- Páginas do Meio -->
+                        <?php for($i = $start; $i <= $end; $i++): ?>
+                            <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
+                        <?php endfor; ?>
+
+                        <!-- Última Página e Reticências -->
+                        <?php if($end < $total_paginas): ?>
+                            <?php if($end < $total_paginas - 1): ?>
+                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
+                            <?php endif; ?>
+                            <a href="<?= urlPagina($total_paginas) ?>" class="<?= $total_paginas == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $total_paginas ?></a>
+                        <?php endif; ?>
+
+                        <!-- Próxima -->
+                        <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
+                    </nav>
                 </div>
             </div>
             <?php endif; ?>
@@ -348,17 +383,17 @@ if (!function_exists('urlPagina')) {
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="action" value="criar_principal">
                 
-                <!-- Linha 1: CNPJ | CPF | CLIENTE (CNPJ menor, Cliente maior) -->
+                <!-- Linha 1: CNPJ | CPF | CLIENTE -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-2"> <!-- CNPJ Diminuído -->
+                    <div class="md:col-span-3">
                         <label class="form-label block mb-1 text-brand-blue">CNPJ</label>
                         <input type="text" name="cnpj" id="cnpj_1" placeholder="Digite o CNPJ" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold transition-colors duration-300">
                     </div>
-                    <div class="md:col-span-2"> <!-- CPF Mantido -->
+                    <div class="md:col-span-3">
                         <label class="form-label block mb-1">CPF</label>
                         <input type="text" name="cpf" id="cpf_1" placeholder="000.000.000-00" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold">
                     </div>
-                    <div class="md:col-span-8"> <!-- CLIENTE Aumentado -->
+                    <div class="md:col-span-6">
                         <label class="form-label block mb-1">Cliente *</label>
                         <input type="text" id="razao_social_1" name="razao_social" required placeholder="Razão Social / Nome" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-brand-blue font-bold text-lg uppercase text-brand-blue">
                     </div>
@@ -665,7 +700,6 @@ if (!function_exists('urlPagina')) {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             
-            // --- FUNÇÃO VIACEP ---
             async function buscarCEP(cepValue, targetFields) {
                 const cleanCep = cepValue.replace(/\D/g, '');
                 if (cleanCep.length !== 8) return;
@@ -681,13 +715,11 @@ if (!function_exists('urlPagina')) {
                 } catch (error) { console.error("Erro CEP:", error); }
             }
 
-            // --- FUNÇÃO BRASILAPI (CNPJ) ---
             async function buscarCNPJ(cnpjInput, isEdit = false) {
                 const cnpjValue = cnpjInput.value.replace(/\D/g, '');
                 if (cnpjValue.length !== 14) return;
 
                 const suffix = isEdit ? '_edit' : '_1';
-                
                 const idRazao = 'razao_social' + suffix;
                 const idCep = 'cep' + suffix;
                 const idEndereco = 'endereco' + suffix;
