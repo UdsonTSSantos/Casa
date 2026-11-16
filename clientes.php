@@ -102,10 +102,12 @@ if (isset($_GET['toggle'])) {
 // 5. Editar Completo (Modal de Edição)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'editar') {
     $id_edit = (int)$_POST['id'];
+    
+    // Removido o 'is_fornecedor' da lista de campos atualizáveis
     $campos_cliente = [
         'razao_social', 'cpf', 'cnpj', 'insc_estadual', 'endereco', 'numero', 'complemento', 
         'bairro', 'cidade', 'uf', 'cep', 'contato_nome', 'contato_celular', 'contato_departamento', 
-        'telefone', 'celular', 'whatsapp', 'email', 'email_danfe', 'is_fornecedor',
+        'telefone', 'celular', 'whatsapp', 'email', 'email_danfe', 
         'cobranca_endereco', 'cobranca_numero', 'cobranca_complemento', 'cobranca_bairro', 
         'cobranca_cidade', 'cobranca_uf', 'cobranca_cep', 'entrega_endereco', 'entrega_numero', 
         'entrega_complemento', 'entrega_bairro', 'entrega_cidade', 'entrega_uf', 'entrega_cep',
@@ -116,7 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     foreach ($campos_cliente as $campo) {
         $dados[$campo] = isset($_POST[$campo . '_edit']) ? trim($_POST[$campo . '_edit']) : null;
     }
-    $dados['is_fornecedor'] = isset($_POST['is_fornecedor_edit']) ? 1 : 0;
     
     try {
         $updates = [];
@@ -205,19 +206,12 @@ if (!function_exists('urlPagina')) {
 }
 
 // --- LÓGICA DA PAGINAÇÃO INTELIGENTE ---
-$adjacents = 2; // Quantos links mostrar antes e depois da página atual
+$adjacents = 2;
 $start = $pagina_atual - $adjacents;
 $end = $pagina_atual + $adjacents;
 
-if ($start < 1) {
-    $end += abs($start) + 1;
-    $start = 1;
-}
-
-if ($end > $total_paginas) {
-    $start -= ($end - $total_paginas);
-    $end = $total_paginas;
-}
+if ($start < 1) { $end += abs($start) + 1; $start = 1; }
+if ($end > $total_paginas) { $start -= ($end - $total_paginas); $end = $total_paginas; }
 if ($start < 1) $start = 1;
 ?>
 <!DOCTYPE html>
@@ -339,10 +333,8 @@ if ($start < 1) $start = 1;
                 </div>
                 <div class="w-full md:w-auto overflow-x-auto">
                     <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <!-- Anterior -->
                         <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
                         
-                        <!-- Primeira Página e Reticências -->
                         <?php if($start > 1): ?>
                             <a href="<?= urlPagina(1) ?>" class="<?= 1 == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">1</a>
                             <?php if($start > 2): ?>
@@ -350,12 +342,10 @@ if ($start < 1) $start = 1;
                             <?php endif; ?>
                         <?php endif; ?>
 
-                        <!-- Páginas do Meio -->
                         <?php for($i = $start; $i <= $end; $i++): ?>
                             <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
                         <?php endfor; ?>
 
-                        <!-- Última Página e Reticências -->
                         <?php if($end < $total_paginas): ?>
                             <?php if($end < $total_paginas - 1): ?>
                                 <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>
@@ -363,7 +353,6 @@ if ($start < 1) $start = 1;
                             <a href="<?= urlPagina($total_paginas) ?>" class="<?= $total_paginas == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $total_paginas ?></a>
                         <?php endif; ?>
 
-                        <!-- Próxima -->
                         <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
                     </nav>
                 </div>
@@ -383,7 +372,6 @@ if ($start < 1) $start = 1;
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="action" value="criar_principal">
                 
-                <!-- Linha 1: CNPJ | CPF | CLIENTE -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1 text-brand-blue">CNPJ</label>
@@ -399,7 +387,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 2: INSC. EST. | TELEFONE(S) | CELULAR PRINCIPAL | WHATSAPP -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1">Insc. Est.</label>
@@ -419,7 +406,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 3: CONTATO | DEPARTAMENTO | CELULAR (CONTATO) -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-4">
                         <label class="form-label block mb-1">Contato</label>
@@ -435,7 +421,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 4: E-MAIL | DANFE PARA -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">E-mail</label>
@@ -447,7 +432,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 5: CEP | ENDEREÇO | Nº -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1">CEP</label>
@@ -463,7 +447,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 6: COMPLEMENTO | BAIRRO | CIDADE | UF -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1">Complemento</label>
@@ -483,7 +466,6 @@ if ($start < 1) $start = 1;
                     </div>
                 </div>
 
-                <!-- Linha 7: OBSERVAÇÃO | MATERIAL COMERCIALIZADO -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="form-label block mb-1">Observação</label>
@@ -617,17 +599,10 @@ if ($start < 1) $start = 1;
                     <div class="md:col-span-3"><label class="form-label block mb-1">DANFE para</label><input type="email" name="email_danfe_edit" value="<?= htmlspecialchars($cliente_edicao['email_danfe']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 pb-3 border-b border-gray-100">
-                    <div class="md:col-span-12 flex justify-end">
-                        <label class="flex items-center gap-2 cursor-pointer bg-blue-50 px-4 py-1.5 rounded border border-blue-200 hover:bg-blue-100 transition-colors">
-                            <input type="checkbox" name="is_fornecedor_edit" <?= $cliente_edicao['is_fornecedor'] ? 'checked' : '' ?> class="w-4 h-4 text-brand-blue rounded">
-                            <span class="form-label text-brand-blue mb-0">Também é Fornecedor</span>
-                        </label>
-                    </div>
-                </div>
+                <!-- Bloco do checkbox "Também é Fornecedor" foi REMOVIDO daqui -->
 
                 <!-- Endereço Principal -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 border-t border-gray-100 pt-4 mt-2">
                     <div class="md:col-span-2"><label class="form-label block mb-1">CEP</label><input type="text" name="cep_edit" id="cep_edit" value="<?= htmlspecialchars($cliente_edicao['cep']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
                     <div class="md:col-span-6"><label class="form-label block mb-1">Endereço</label><input type="text" name="endereco_edit" id="endereco_edit" value="<?= htmlspecialchars($cliente_edicao['endereco']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
                     <div class="md:col-span-1"><label class="form-label block mb-1">Nº</label><input type="text" name="numero_edit" id="numero_edit" value="<?= htmlspecialchars($cliente_edicao['numero']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
@@ -769,7 +744,6 @@ if ($start < 1) $start = 1;
             const phoneMaskOptions = { mask: [{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }] };
             const cnpjMaskOptions = { mask: 'XX.XXX.XXX/XXXX-XX', definitions: { 'X': /[a-zA-Z0-9]/ } };
 
-            // --- MÁSCARAS DO MODAL NOVO CLIENTE (PASSO 1) ---
             if(document.getElementById('cnpj_1')) {
                 IMask(document.getElementById('cnpj_1'), cnpjMaskOptions);
                 document.getElementById('cnpj_1').addEventListener('blur', function() { buscarCNPJ(this, false); });
@@ -787,7 +761,6 @@ if ($start < 1) $start = 1;
                 });
             }
 
-            // --- MÁSCARAS DO MODAL COBRANÇA ---
             if(document.getElementById('cobranca_cep')) {
                 IMask(document.getElementById('cobranca_cep'), { mask: '00000-000' });
                 document.getElementById('cobranca_cep').addEventListener('blur', function() {
@@ -795,7 +768,6 @@ if ($start < 1) $start = 1;
                 });
             }
 
-            // --- MÁSCARAS DO MODAL ENTREGA ---
             if(document.getElementById('entrega_cep')) {
                 IMask(document.getElementById('entrega_cep'), { mask: '00000-000' });
                 document.getElementById('entrega_cep').addEventListener('blur', function() {
@@ -803,7 +775,6 @@ if ($start < 1) $start = 1;
                 });
             }
 
-            // --- MÁSCARAS DO MODAL EDIÇÃO ---
             if(document.getElementById('cnpj_edit')) {
                 IMask(document.getElementById('cnpj_edit'), cnpjMaskOptions);
                 document.getElementById('cnpj_edit').addEventListener('blur', function() { buscarCNPJ(this, true); });
