@@ -1,7 +1,7 @@
 <?php
-// pedidos.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php';
+
 
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
@@ -75,6 +75,12 @@ if (!function_exists('urlPagina')) {
             }
         }
     </script>
+    <style>
+        /* Remove a borda dupla entre as colunas do cabeçalho */
+        .table-header th { border-bottom: 1px solid #e5e7eb; }
+        .table-header th:first-child { border-top-left-radius: 0.5rem; }
+        .table-header th:last-child { border-top-right-radius: 0.5rem; }
+    </style>
 </head>
 <body class="bg-bg-main min-h-screen flex flex-col font-sans text-text-main text-base">
 
@@ -110,38 +116,52 @@ if (!function_exists('urlPagina')) {
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
-                        <tr class="border-b-2 border-gray-300 text-gray-700 bg-gray-100">
-                            <th class="py-3 px-3 font-bold text-center w-24">Nº Pedido</th>
-                            <th class="py-3 px-3 font-bold text-center w-32">Data</th>
-                            <th class="py-3 px-3 font-bold">Cliente</th>
-                            <th class="py-3 px-3 font-bold text-right">Total (R$)</th>
-                            <th class="py-3 px-3 font-bold text-center">Status</th>
-                            <th class="py-3 px-3 font-bold text-center w-24">Ações</th>
+                        <tr class="table-header bg-gray-100 text-gray-800">
+                            <th rowspan="2" class="py-2 px-3 font-bold text-center w-24 align-middle border-r border-gray-200">Nº Pedido</th>
+                            <th rowspan="2" class="py-2 px-3 font-bold text-center w-28 align-middle border-r border-gray-200">Data</th>
+                            <th rowspan="2" class="py-2 px-3 font-bold align-middle border-r border-gray-200">Cliente</th>
+                            <th colspan="2" class="py-1 px-3 font-bold text-center border-r border-gray-200">TOTAL por pedido</th>
+                            <th rowspan="2" class="py-2 px-3 font-bold text-center w-24 align-middle">Ações</th>
+                        </tr>
+                        <tr class="bg-gray-100 text-gray-600 border-b-2 border-gray-300">
+                            <th class="py-1 px-3 font-bold text-right text-xs border-r border-gray-200 w-32">c/ imposto</th>
+                            <th class="py-1 px-3 font-bold text-right text-xs w-32">s/ imposto</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach($pedidos as $p): ?>
+                        <?php 
+                            // Lógica de cores
+                            $total_com = (float)$p['total_com_imposto'];
+                            $total_sem = (float)$p['total_sem_imposto'];
+
+                            // Regra: Se total com imposto for zero ou igual ao sem imposto, fica cinza claro
+                            $class_com = 'text-gray-800'; 
+                            if ($total_com == 0 || abs($total_com - $total_sem) < 0.01) {
+                                $class_com = 'text-gray-300'; 
+                            }
+
+                            // Regra: Se total sem imposto for zero, fica cinza claro
+                            $class_sem = 'text-gray-800';
+                            if ($total_sem == 0) {
+                                $class_sem = 'text-gray-300';
+                            }
+                        ?>
                         <tr class="border-b border-gray-200 hover:bg-blue-50 transition-colors">
-                            <td class="py-3 px-3 text-center font-bold text-brand-blue">
+                            <td class="py-3 px-3 text-center font-bold text-brand-blue border-r border-gray-100">
                                 <?= str_pad($p['numero_pedido'], 5, '0', STR_PAD_LEFT) ?>
                             </td>
-                            <td class="py-3 px-3 text-center text-gray-600">
-                                <?= date('d/m/Y H:i', strtotime($p['data_pedido'])) ?>
+                            <td class="py-3 px-3 text-center text-gray-600 border-r border-gray-100">
+                                <?= date('d/m/Y', strtotime($p['data_pedido'])) ?>
                             </td>
-                            <td class="py-3 px-3 font-semibold text-gray-800">
+                            <td class="py-3 px-3 font-semibold text-gray-800 border-r border-gray-100">
                                 <?= htmlspecialchars($p['cliente_nome'] ?? 'Cliente não encontrado') ?>
                             </td>
-                            <td class="py-3 px-3 text-right font-bold text-gray-700">
-                                <?= number_format($p['total_com_imposto'], 2, ',', '.') ?>
+                            <td class="py-3 px-3 text-right font-semibold border-r border-gray-100 <?= $class_com ?>">
+                                <?= number_format($total_com, 2, ',', '.') ?>
                             </td>
-                            <td class="py-3 px-3 text-center">
-                                <?php if($p['status'] == 'orcamento'): ?>
-                                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold uppercase">Orçamento</span>
-                                <?php elseif($p['status'] == 'pedido'): ?>
-                                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold uppercase">Pedido</span>
-                                <?php else: ?>
-                                    <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-bold uppercase">Cancelado</span>
-                                <?php endif; ?>
+                            <td class="py-3 px-3 text-right font-semibold <?= $class_sem ?>">
+                                <?= number_format($total_sem, 2, ',', '.') ?>
                             </td>
                             <td class="py-3 px-3 text-center">
                                 <a href="novo_pedido.php?id=<?= $p['id'] ?>" class="bg-gray-200 text-gray-700 hover:bg-gray-300 px-3 py-1.5 rounded transition-colors text-xs font-medium" title="Editar Pedido">Editar</a>
@@ -169,9 +189,29 @@ if (!function_exists('urlPagina')) {
                     <div>
                         <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                             <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
-                            <?php for($i = 1; $i <= $total_paginas; $i++): ?>
+                            <?php 
+                            $adjacents = 2;
+                            $start = $pagina_atual - $adjacents;
+                            $end = $pagina_atual + $adjacents;
+                            if ($start < 1) { $end += abs($start) + 1; $start = 1; }
+                            if ($end > $total_paginas) { $start -= ($end - $total_paginas); $end = $total_paginas; }
+                            if ($start < 1) $start = 1;
+                            ?>
+                            
+                            <?php if($start > 1): ?>
+                                <a href="<?= urlPagina(1) ?>" class="<?= 1 == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">1</a>
+                                <?php if($start > 2): ?><span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span><?php endif; ?>
+                            <?php endif; ?>
+
+                            <?php for($i = $start; $i <= $end; $i++): ?>
                                 <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
                             <?php endfor; ?>
+
+                            <?php if($end < $total_paginas): ?>
+                                <?php if($end < $total_paginas - 1): ?><span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span><?php endif; ?>
+                                <a href="<?= urlPagina($total_paginas) ?>" class="<?= $total_paginas == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $total_paginas ?></a>
+                            <?php endif; ?>
+
                             <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
                         </nav>
                     </div>

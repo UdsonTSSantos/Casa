@@ -1,10 +1,10 @@
 <?php
-// index.php
 session_start();
-if (isset($_SESSION['usuario_id'])) {
-    header("Location: dashboard.php"); 
-    exit;
+if (isset($_GET['timeout']) && $_GET['timeout'] == 1) {
+    $_SESSION['erro'] = "Sua sessão expirou por inatividade. Faça login novamente.";
+
 }
+     
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">

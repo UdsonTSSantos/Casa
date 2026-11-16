@@ -1,7 +1,6 @@
 <?php
-// usuarios.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php'; 
 
 if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_role'] !== 'superadmin') {
     header("Location: dashboard.php");

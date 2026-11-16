@@ -1,12 +1,35 @@
 <?php
-// fornecedores.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php'; 
+
 
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
     exit;
 }
+
+// --- FUNÇÕES DE MÁSCARA PARA LISTAGEM ---
+function formatarCnpj($cnpj) {
+    if (empty($cnpj)) return '';
+    $cnpj = preg_replace('/[^0-9]/', '', $cnpj);
+    if (strlen($cnpj) === 14) {
+        return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $cnpj);
+    }
+    return $cnpj;
+}
+
+function formatarTelefone($telefone) {
+    if (empty($telefone)) return '';
+    $tel = preg_replace('/[^0-9]/', '', $telefone);
+    $len = strlen($tel);
+    if ($len === 10) {
+        return preg_replace('/(\d{2})(\d{4})(\d{4})/', '($1) $2-$3', $tel);
+    } elseif ($len === 11) {
+        return preg_replace('/(\d{2})(\d{5})(\d{4})/', '($1) $2-$3', $tel);
+    }
+    return $telefone;
+}
+// ----------------------------------------
 
 $pdo = Database::getInstance();
 $fornecedor_edicao = null;
@@ -24,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt->execute([
                 $razao_social, trim($_POST['cep']), trim($_POST['endereco']), trim($_POST['numero']), trim($_POST['bairro']), trim($_POST['cidade']), trim($_POST['uf']),
                 $cnpj, trim($_POST['ie']), trim($_POST['telefone']),
-                trim($_POST['contato_nome']), trim($_POST['celular']), trim($_POST['email']), trim($_POST['whatsapp']), trim($_POST['email_danfe']),
+                trim($_POST['contato_nome']), trim($_POST['celular']), strtolower(trim($_POST['email'])), trim($_POST['whatsapp']), strtolower(trim($_POST['email_danfe'])),
                 trim($_POST['observacao'])
             ]);
             $_SESSION['sucesso'] = "Fornecedor cadastrado com sucesso!";
@@ -67,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt->execute([
                 $razao_social, trim($_POST['cep']), trim($_POST['endereco']), trim($_POST['numero']), trim($_POST['bairro']), trim($_POST['cidade']), trim($_POST['uf']),
                 trim($_POST['cnpj']), trim($_POST['ie']), trim($_POST['telefone']),
-                trim($_POST['contato_nome']), trim($_POST['celular']), trim($_POST['email']), trim($_POST['whatsapp']), trim($_POST['email_danfe']),
+                trim($_POST['contato_nome']), trim($_POST['celular']), strtolower(trim($_POST['email'])), trim($_POST['whatsapp']), strtolower(trim($_POST['email_danfe'])),
                 trim($_POST['observacao']), $id_edit
             ]);
             $_SESSION['sucesso'] = "Fornecedor atualizado com sucesso!";
@@ -216,8 +239,11 @@ if (!function_exists('urlPagina')) {
                                 <svg class="w-4 h-4 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                 <?= htmlspecialchars($f['razao_social']) ?>
                             </td>
-                            <td class="py-3 px-3 text-gray-600"><?= htmlspecialchars($f['cnpj']) ?></td>
-                            <td class="py-3 px-3 text-gray-600"><?= htmlspecialchars($f['telefone']) ?></td>
+                            
+                            <!-- MÁSCARAS APLICADAS AQUI -->
+                            <td class="py-3 px-3 text-gray-600"><?= formatarCnpj($f['cnpj']) ?></td>
+                            <td class="py-3 px-3 text-gray-600"><?= formatarTelefone($f['telefone']) ?></td>
+                            
                             <td class="py-3 px-3">
                                 <div class="flex items-center justify-center gap-2">
                                     <a href="fornecedores.php?edit=<?= $f['id'] ?>" class="bg-gray-200 text-gray-700 hover:bg-gray-300 px-3 py-1.5 rounded transition-colors text-xs font-medium">Editar</a>
@@ -240,22 +266,41 @@ if (!function_exists('urlPagina')) {
             
             <!-- PAGINAÇÃO -->
             <?php if($total_paginas > 1): ?>
-            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6">
-                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                        <p class="text-sm text-gray-700">
-                            Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a <span class="font-medium"><?= min($offset + $limite, $total_registros) ?></span> de <span class="font-medium"><?= $total_registros ?></span> resultados
-                        </p>
-                    </div>
-                    <div>
-                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                            <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
-                            <?php for($i = 1; $i <= $total_paginas; $i++): ?>
-                                <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
-                            <?php endfor; ?>
-                            <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
-                        </nav>
-                    </div>
+            <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4 sm:px-6">
+                <div class="w-full md:w-auto text-center md:text-left">
+                    <p class="text-sm text-gray-700">
+                        Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a <span class="font-medium"><?= min($offset + $limite, $total_registros) ?></span> de <span class="font-medium"><?= $total_registros ?></span> resultados
+                    </p>
+                </div>
+                <div class="w-full md:w-auto overflow-x-auto">
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <a href="<?= $pagina_atual > 1 ? urlPagina($pagina_atual - 1) : '#' ?>" class="<?= $pagina_atual > 1 ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium">Anterior</a>
+                        
+                        <?php 
+                        $adjacents = 2;
+                        $start = $pagina_atual - $adjacents;
+                        $end = $pagina_atual + $adjacents;
+                        if ($start < 1) { $end += abs($start) + 1; $start = 1; }
+                        if ($end > $total_paginas) { $start -= ($end - $total_paginas); $end = $total_paginas; }
+                        if ($start < 1) $start = 1;
+                        ?>
+
+                        <?php if($start > 1): ?>
+                            <a href="<?= urlPagina(1) ?>" class="<?= 1 == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">1</a>
+                            <?php if($start > 2): ?><span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span><?php endif; ?>
+                        <?php endif; ?>
+
+                        <?php for($i = $start; $i <= $end; $i++): ?>
+                            <a href="<?= urlPagina($i) ?>" class="<?= $i == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $i ?></a>
+                        <?php endfor; ?>
+
+                        <?php if($end < $total_paginas): ?>
+                            <?php if($end < $total_paginas - 1): ?><span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span><?php endif; ?>
+                            <a href="<?= urlPagina($total_paginas) ?>" class="<?= $total_paginas == $pagina_atual ? 'bg-brand-blue text-white border-brand-blue z-10' : 'bg-white text-gray-500 hover:bg-gray-50 border-gray-300' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium"><?= $total_paginas ?></a>
+                        <?php endif; ?>
+
+                        <a href="<?= $pagina_atual < $total_paginas ? urlPagina($pagina_atual + 1) : '#' ?>" class="<?= $pagina_atual < $total_paginas ? 'bg-white text-gray-500 hover:bg-gray-50' : 'bg-gray-100 text-gray-300 cursor-not-allowed' ?> relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium">Próxima</a>
+                    </nav>
                 </div>
             </div>
             <?php endif; ?>
@@ -265,8 +310,8 @@ if (!function_exists('urlPagina')) {
     <!-- ========================================== -->
     <!-- MODAL: NOVO FORNECEDOR                     -->
     <!-- ========================================== -->
-    <div id="modalNovoFornecedor" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6 relative my-8">
+    <div id="modalNovoFornecedor" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-4 md:p-6 relative my-8">
             <button onclick="document.getElementById('modalNovoFornecedor').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</button>
             
             <div class="flex items-center gap-4 mb-4 border-b pb-2">
@@ -279,7 +324,6 @@ if (!function_exists('urlPagina')) {
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="action" value="criar">
                 
-                <!-- Linha 1: CNPJ | I.E. -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1 text-brand-blue">CNPJ</label>
@@ -291,13 +335,11 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 2: FORNECEDOR -->
                 <div>
                     <label class="form-label block mb-1">Fornecedor *</label>
                     <input type="text" name="razao_social" id="razao_social" required placeholder="Razão Social / Nome" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-brand-blue font-bold text-lg uppercase text-brand-blue">
                 </div>
 
-                <!-- Linha 3: CEP | ENDEREÇO | NÚMERO -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1">CEP</label>
@@ -313,7 +355,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 4: BAIRRO | CIDADE | UF -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-4">
                         <label class="form-label block mb-1">Bairro</label>
@@ -329,7 +370,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 5: TELEFONE | WHATSAPP -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">Telefone</label>
@@ -341,7 +381,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 6: CONTATO | CELULAR -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">Contato</label>
@@ -353,7 +392,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 7: E-MAIL | DANFE PARA -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">E-mail</label>
@@ -365,7 +403,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 8: OBSERVAÇÃO -->
                 <div>
                     <label class="form-label block mb-1">Observação</label>
                     <textarea name="observacao" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-brand-blue font-semibold"></textarea>
@@ -386,25 +423,22 @@ if (!function_exists('urlPagina')) {
     <!-- MODAL: EDIÇÃO DE FORNECEDOR                -->
     <!-- ========================================== -->
     <?php if($fornecedor_edicao): ?>
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6 relative my-8">
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-4 md:p-6 relative my-8">
             <a href="fornecedores.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</a>
             
-            <div class="flex items-center justify-between mb-4 border-b pb-2">
-                <div class="flex items-center gap-4">
-                    <div class="bg-brand-blue text-white p-2 rounded-lg">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                    </div>
-                    <h2 class="text-xl font-bold text-gray-800 uppercase">Editar Fornecedor</h2>
+            <div class="flex items-center gap-4 mb-4 border-b pb-2">
+                <div class="bg-brand-blue text-white p-2 rounded-lg">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                 </div>
-                <span class="text-xl text-gray-500 font-mono tracking-widest"><?= str_pad($fornecedor_edicao['id'], 6, '0', STR_PAD_LEFT) ?></span>
+                <h2 class="text-xl font-bold text-gray-800 uppercase">Editar Fornecedor</h2>
+                <!-- ID REMOVIDO DAQUI -->
             </div>
             
             <form method="POST" class="space-y-3">
                 <input type="hidden" name="action" value="editar">
                 <input type="hidden" name="id" value="<?= $fornecedor_edicao['id'] ?>">
                 
-                <!-- Linha 1: CNPJ | I.E. -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1 text-brand-blue">CNPJ</label>
@@ -416,13 +450,11 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 2: FORNECEDOR -->
                 <div>
                     <label class="form-label block mb-1">Fornecedor *</label>
                     <input type="text" name="razao_social" id="razao_social_edit" required value="<?= htmlspecialchars($fornecedor_edicao['razao_social']) ?>" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-brand-blue font-bold text-lg uppercase text-brand-blue">
                 </div>
 
-                <!-- Linha 3: CEP | ENDEREÇO | NÚMERO -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-3">
                         <label class="form-label block mb-1">CEP</label>
@@ -438,7 +470,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 4: BAIRRO | CIDADE | UF -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-4">
                         <label class="form-label block mb-1">Bairro</label>
@@ -454,7 +485,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 5: TELEFONE | WHATSAPP -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">Telefone</label>
@@ -466,7 +496,6 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 6: CONTATO | CELULAR -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">Contato</label>
@@ -478,25 +507,22 @@ if (!function_exists('urlPagina')) {
                     </div>
                 </div>
 
-                <!-- Linha 7: E-MAIL | DANFE PARA -->
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">E-mail</label>
-                        <input type="email" name="email" id="email_edit" value="<?= htmlspecialchars($fornecedor_edicao['email']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase">
+                        <input type="email" name="email" id="email_edit" value="<?= htmlspecialchars(strtolower($fornecedor_edicao['email'])) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase">
                     </div>
                     <div class="md:col-span-6">
                         <label class="form-label block mb-1">DANFE para</label>
-                        <input type="email" name="email_danfe" value="<?= htmlspecialchars($fornecedor_edicao['email_danfe']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase">
+                        <input type="email" name="email_danfe" value="<?= htmlspecialchars(strtolower($fornecedor_edicao['email_danfe'])) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase">
                     </div>
                 </div>
 
-                <!-- Linha 8: OBSERVAÇÃO -->
                 <div>
                     <label class="form-label block mb-1">Observação</label>
                     <textarea name="observacao" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-brand-blue font-semibold"><?= htmlspecialchars($fornecedor_edicao['observacao']) ?></textarea>
                 </div>
 
-                <!-- Botões de Ação do Modal de Edição -->
                 <div class="pt-4 border-t border-gray-200 mt-4 flex flex-col md:flex-row justify-between items-center gap-2">
                     
                     <a href="fornecedores.php?delete=<?= $fornecedor_edicao['id'] ?>" onclick="return confirm('Tem certeza que deseja EXCLUIR este fornecedor?')" class="w-full md:w-auto bg-red-600 text-white hover:bg-red-700 font-bold py-2 px-6 rounded shadow-md transition-all text-sm text-center">
@@ -524,7 +550,6 @@ if (!function_exists('urlPagina')) {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             
-            // --- FUNÇÃO VIACEP ---
             async function buscarCEP(cepValue, targetFields) {
                 const cleanCep = cepValue.replace(/\D/g, '');
                 if (cleanCep.length !== 8) return;
@@ -540,7 +565,6 @@ if (!function_exists('urlPagina')) {
                 } catch (error) { console.error("Erro CEP:", error); }
             }
 
-            // --- FUNÇÃO BRASILAPI (CNPJ) ---
             async function buscarCNPJ(cnpjInput, isEdit = false) {
                 const cnpjValue = cnpjInput.value.replace(/\D/g, '');
                 if (cnpjValue.length !== 14) return;
@@ -576,7 +600,7 @@ if (!function_exists('urlPagina')) {
                     setVal(idCidade, data.municipio);
                     setVal(idUf, data.uf);
                     if (data.ddd_telefone_1) setVal(idTelefone, data.ddd_telefone_1);
-                    if (data.email) setVal(idEmail, data.email);
+                    if (data.email) setVal(idEmail, data.email.toLowerCase());
 
                     cnpjInput.classList.remove('api-loading');
                     cnpjInput.classList.add('api-success');
@@ -593,34 +617,28 @@ if (!function_exists('urlPagina')) {
             const phoneMaskOptions = { mask: [{ mask: '(00) 0000-0000' }, { mask: '(00) 00000-0000' }] };
             const cnpjMaskOptions = { mask: 'XX.XXX.XXX/XXXX-XX', definitions: { 'X': /[a-zA-Z0-9]/ } };
 
-            // --- MÁSCARAS DO MODAL NOVO FORNECEDOR ---
+            if(document.getElementById('cnpj')) {
+                IMask(document.getElementById('cnpj'), cnpjMaskOptions);
+                document.getElementById('cnpj').addEventListener('blur', function() { buscarCNPJ(this, false); });
+            }
             if(document.getElementById('cep')) {
                 IMask(document.getElementById('cep'), { mask: '00000-000' });
                 document.getElementById('cep').addEventListener('blur', function() {
                     buscarCEP(this.value, { endereco: 'endereco', bairro: 'bairro', cidade: 'cidade', uf: 'uf' });
                 });
             }
-            if(document.getElementById('cnpj')) {
-                IMask(document.getElementById('cnpj'), cnpjMaskOptions);
-                document.getElementById('cnpj').addEventListener('blur', function() {
-                    buscarCNPJ(this, false);
-                });
-            }
             if(document.getElementById('telefone')) IMask(document.getElementById('telefone'), { mask: '(00) 0000-0000' });
             if(document.getElementById('whatsapp')) IMask(document.getElementById('whatsapp'), phoneMaskOptions);
             if(document.getElementById('celular')) IMask(document.getElementById('celular'), phoneMaskOptions);
 
-            // --- MÁSCARAS DO MODAL EDIÇÃO ---
+            if(document.getElementById('cnpj_edit')) {
+                IMask(document.getElementById('cnpj_edit'), cnpjMaskOptions);
+                document.getElementById('cnpj_edit').addEventListener('blur', function() { buscarCNPJ(this, true); });
+            }
             if(document.getElementById('cep_edit')) {
                 IMask(document.getElementById('cep_edit'), { mask: '00000-000' });
                 document.getElementById('cep_edit').addEventListener('blur', function() {
                     buscarCEP(this.value, { endereco: 'endereco_edit', bairro: 'bairro_edit', cidade: 'cidade_edit', uf: 'uf_edit' });
-                });
-            }
-            if(document.getElementById('cnpj_edit')) {
-                IMask(document.getElementById('cnpj_edit'), cnpjMaskOptions);
-                document.getElementById('cnpj_edit').addEventListener('blur', function() {
-                    buscarCNPJ(this, true);
                 });
             }
             if(document.getElementById('telefone_edit')) IMask(document.getElementById('telefone_edit'), { mask: '(00) 0000-0000' });

@@ -1,7 +1,7 @@
 <?php
-// dashboard.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php';
+
 
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");

@@ -1,7 +1,7 @@
 <?php
-// novo_pedido.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php'; 
+
 
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
@@ -71,28 +71,6 @@ if ($pedido) {
                 }
             }
         }
-
-        // Função para abrir o modal de impressão
-        function abrirImpressao(id) {
-            const modal = document.getElementById('modalImpressao');
-            const iframe = document.getElementById('iframeImpressao');
-            // Carrega o arquivo de impressão com o ID do pedido
-            iframe.src = 'imprimir_pedido.php?id=' + id;
-            // Mostra o modal
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden'; // Impede rolagem do fundo
-        }
-
-        // Função para fechar o modal
-        function fecharImpressao() {
-            const modal = document.getElementById('modalImpressao');
-            const iframe = document.getElementById('iframeImpressao');
-            // Limpa o iframe para parar o carregamento
-            iframe.src = ''; 
-            // Esconde o modal
-            modal.classList.add('hidden');
-            document.body.style.overflow = 'auto'; // Devolve a rolagem do fundo
-        }
     </script>
     <style>
         body { font-size: 13px; }
@@ -112,33 +90,6 @@ if ($pedido) {
 </head>
 <body class="bg-gray-200 min-h-screen font-sans text-gray-800">
 
-    <!-- ========================================== -->
-    <!-- MODAL DE VISUALIZAÇÃO DE IMPRESSÃO         -->
-    <!-- ========================================== -->
-    <div id="modalImpressao" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[9999] flex flex-col p-4 md:p-8">
-        <!-- Container do Modal -->
-        <div class="bg-white w-full max-w-[21cm] h-full mx-auto rounded-lg shadow-2xl relative flex flex-col overflow-hidden">
-            
-            <!-- Barra superior do modal -->
-            <div class="bg-gray-100 px-4 py-3 flex justify-between items-center border-b">
-                <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2">
-                    <svg class="w-5 h-5 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                    Visualização de Impressão
-                </h3>
-                <button onclick="fecharImpressao()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-1.5 rounded shadow transition-colors flex items-center gap-2 text-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    Fechar
-                </button>
-            </div>
-
-            <!-- Iframe que carrega a página de impressão -->
-            <div class="flex-1 overflow-auto bg-gray-300">
-                <iframe id="iframeImpressao" src="" class="w-full h-full border-none"></iframe>
-            </div>
-        </div>
-    </div>
-
-    <!-- ALERTAS -->
     <div class="max-w-[1300px] mx-auto mt-4 px-2">
         <?php if(isset($_SESSION['erro'])): ?>
             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-md mb-4 font-semibold text-sm">
@@ -152,12 +103,17 @@ if ($pedido) {
         <?php endif; ?>
     </div>
 
-    <form id="formPedido" action="salvar_pedido.php" method="POST" class="max-w-[1300px] mx-auto mb-6 bg-white shadow-xl">
+    <form id="formPedido" action="salvar_pedido.php" method="POST" class="max-w-[1300px] mx-auto mb-6 bg-white shadow-xl relative">
+        
+        <!-- Botão Fechar (X) no canto superior direito -->
+        <a href="pedidos.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none z-10" title="Fechar e voltar">&times;</a>
+
         <input type="hidden" name="pedido_id" value="<?= $pedido_id ?>">
         
         <!-- CABEÇALHO -->
         <div class="p-4 md:p-6 border-b border-gray-300 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
             
+            <!-- Lado Esquerdo -->
             <div class="col-span-1 md:col-span-8 flex flex-col justify-between space-y-2">
                 <div class="flex items-center gap-3">
                     <label class="w-20 form-label flex-shrink-0">Para:</label>
@@ -208,6 +164,7 @@ if ($pedido) {
                 </div>
             </div>
 
+            <!-- Lado Direito (Orçamento, Data, Endereços) -->
             <div class="col-span-1 md:col-span-4 flex flex-col justify-between space-y-4">
                 <div class="flex justify-between items-start">
                     <div>
@@ -222,6 +179,7 @@ if ($pedido) {
                     </div>
                 </div>
                 
+                <!-- Endereços (Ocultos no mobile) -->
                 <div class="hidden md:block">
                     <label class="form-label block mb-1">Endereço de cobrança:</label>
                     <input type="text" name="endereco_cobranca" id="endereco_cobranca" value="<?= $pedido ? htmlspecialchars($pedido['endereco_cobranca']) : '' ?>" placeholder=" " class="header-input w-full">
@@ -233,7 +191,7 @@ if ($pedido) {
             </div>
         </div>
 
-        <!-- TABELA DE ITENS -->
+        <!-- TABELA DE ITENS (Com rolagem horizontal no mobile) -->
         <div class="p-4 w-full overflow-x-auto">
             <table class="w-full table-border text-xs min-w-[800px]" id="tabelaItens">
                 <thead class="bg-brand-blue text-white">
@@ -262,18 +220,21 @@ if ($pedido) {
 
         <!-- RODAPÉ DE TOTAIS -->
         <div class="p-4 border-t border-gray-300 bg-gray-50 flex flex-col xl:flex-row justify-between items-center text-xs gap-4">
+            <!-- Os 6 itens ficam ocultos até 1280px (xl) -->
             <div class="flex-1 w-full grid grid-cols-1 xl:grid-cols-7 gap-2 text-center">
                 <div class="hidden xl:block"><div class="form-label">Número de itens</div><div id="num_itens" class="text-sm">000000</div></div>
                 <div class="hidden xl:block"><div class="form-label">QTD de itens</div><div id="qtd_itens" class="text-sm is-zero">0</div></div>
                 <div class="hidden xl:block"><div class="form-label">R$ dos impostos</div><div id="total_impostos" class="text-sm is-zero">0,00</div></div>
                 <div class="hidden xl:block"><div class="form-label">Total sem impostos</div><div id="total_sem_imposto" class="text-sm is-zero">0,00</div></div>
                 
+                <!-- Total com impostos fica visível -->
                 <div class="block"><div class="form-label">Total com impostos</div><div id="total_com_imposto" class="text-sm is-zero">0,00</div></div>
                 
                 <div class="hidden xl:block"><div class="form-label">R$ IPI</div><div id="total_ipi" class="text-sm is-zero">0,00</div></div>
                 <div class="hidden xl:block"><div class="form-label">R$ ICMS</div><div id="total_icms" class="text-sm is-zero">0,00</div></div>
             </div>
             
+            <!-- Total Geral sempre visível -->
             <div class="text-right w-full xl:w-auto pl-0 xl:pl-6 border-l-0 xl:border-l border-gray-300 min-w-[200px]">
                 <div class="form-label">TOTAL | Sem imposto</div>
                 <div class="text-4xl font-extrabold text-brand-blue tracking-tight">R$ <span id="display_total_geral" class="is-zero">0,00</span></div>
@@ -284,6 +245,7 @@ if ($pedido) {
         <div class="p-4 md:p-6 border-t border-gray-300 grid grid-cols-1 md:grid-cols-12 gap-6 text-xs bg-white">
             
             <div class="col-span-1 md:col-span-3 space-y-4">
+                <!-- Vendedor (Oculto no mobile) -->
                 <div class="hidden md:block">
                     <label class="form-label block mb-1">Vendedor</label>
                     <select name="vendedor_id" class="header-input w-full">
@@ -331,18 +293,19 @@ if ($pedido) {
                 </div>
             </div>
             
+            <!-- Observação (Oculto no mobile) -->
             <div class="col-span-1 md:col-span-5 hidden md:block">
                 <label class="form-label block mb-1">Observação</label>
                 <textarea name="observacao" rows="6" placeholder=" " class="header-input w-full resize-none"><?= $pedido ? htmlspecialchars($pedido['observacao']) : '' ?></textarea>
             </div>
         </div>
         
-        <!-- BOTÕES -->
+        <!-- Botões (Fechar, Imprimir, Salvar) -->
         <div class="p-4 bg-gray-50 border-t border-gray-300 flex flex-col md:flex-row justify-end gap-3">
-            <a href="pedidos.php" class="bg-white border border-gray-300 text-gray-700 px-8 py-2 rounded font-bold hover:bg-gray-100 transition-colors text-center">Cancelar</a>
+            <!-- Alterado de Cancelar para Fechar -->
+            <a href="pedidos.php" class="bg-white border border-gray-300 text-gray-700 px-8 py-2 rounded font-bold hover:bg-gray-100 transition-colors text-center">Fechar</a>
             
             <?php if($pedido_id > 0): ?>
-                <!-- Botão de Imprimir alterado para chamar a função JS -->
                 <button type="button" onclick="abrirImpressao(<?= $pedido_id ?>)" class="bg-brand-orange text-white px-8 py-2 rounded font-bold hover:bg-orange-600 transition-colors shadow-md text-center flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                     Imprimir
@@ -352,6 +315,27 @@ if ($pedido) {
             <button type="submit" class="bg-brand-blue text-white px-8 py-2 rounded font-bold hover:bg-blue-900 transition-colors shadow-md text-center">Salvar Pedido</button>
         </div>
     </form>
+
+    <!-- ========================================== -->
+    <!-- MODAL DE VISUALIZAÇÃO DE IMPRESSÃO         -->
+    <!-- ========================================== -->
+    <div id="modalImpressao" class="hidden fixed inset-0 bg-black bg-opacity-75 z-[9999] flex flex-col p-4 md:p-8">
+        <div class="bg-white w-full max-w-[21cm] h-full mx-auto rounded-lg shadow-2xl relative flex flex-col overflow-hidden">
+            <div class="bg-gray-100 px-4 py-3 flex justify-between items-center border-b">
+                <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2">
+                    <svg class="w-5 h-5 text-brand-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    Visualização de Impressão
+                </h3>
+                <button onclick="fecharImpressao()" class="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-1.5 rounded shadow transition-colors flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    Fechar
+                </button>
+            </div>
+            <div class="flex-1 overflow-auto bg-gray-300">
+                <iframe id="iframeImpressao" src="" class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+    </div>
 
     <template id="rowTemplate">
         <tr class="hover:bg-blue-50">
@@ -377,6 +361,24 @@ if ($pedido) {
     </datalist>
 
     <script>
+        // Função para abrir o modal de impressão
+        function abrirImpressao(id) {
+            const modal = document.getElementById('modalImpressao');
+            const iframe = document.getElementById('iframeImpressao');
+            iframe.src = 'imprimir_pedido.php?id=' + id;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Função para fechar o modal
+        function fecharImpressao() {
+            const modal = document.getElementById('modalImpressao');
+            const iframe = document.getElementById('iframeImpressao');
+            iframe.src = ''; 
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
         const itensExistentes = <?= json_encode($itens_pedido) ?>;
 
         document.addEventListener('DOMContentLoaded', function() {

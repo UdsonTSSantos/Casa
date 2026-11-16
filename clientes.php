@@ -1,11 +1,27 @@
 <?php
-// clientes.php
-session_start();
 require_once __DIR__ . '/src/Database.php';
+require_once __DIR__ . '/verifica_sessao.php'; 
 
 if (!isset($_SESSION['usuario_id'])) {
     header("Location: index.php");
     exit;
+}
+
+// Função para formatar CNPJ e CPF
+function formatarCnpjCpf($valor) {
+    if (empty($valor)) return '';
+    
+    // Remove qualquer caractere que não seja número
+    $valor = preg_replace('/[^0-9]/', '', $valor);
+    $len = strlen($valor);
+
+    if ($len === 14) { // CNPJ
+        return preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $valor);
+    } elseif ($len === 11) { // CPF
+        return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $valor);
+    }
+    
+    return $valor; // Retorna como está se não for 11 ou 14 dígitos
 }
 
 $pdo = Database::getInstance();
@@ -32,8 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'telefone' => trim($_POST['telefone']),
         'celular' => trim($_POST['celular']),
         'whatsapp' => trim($_POST['whatsapp']),
-        'email' => trim($_POST['email']),
-        'email_danfe' => trim($_POST['email_danfe']),
+        // Força e-mail em minúsculo
+        'email' => strtolower(trim($_POST['email'])),
+        'email_danfe' => strtolower(trim($_POST['email_danfe'])),
         'is_fornecedor' => 0,
         'observacao' => trim($_POST['observacao']),
         'material_comercializado' => trim($_POST['material_comercializado'])
@@ -103,7 +120,6 @@ if (isset($_GET['toggle'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'editar') {
     $id_edit = (int)$_POST['id'];
     
-    // Removido o 'is_fornecedor' da lista de campos atualizáveis
     $campos_cliente = [
         'razao_social', 'cpf', 'cnpj', 'insc_estadual', 'endereco', 'numero', 'complemento', 
         'bairro', 'cidade', 'uf', 'cep', 'contato_nome', 'contato_celular', 'contato_departamento', 
@@ -116,7 +132,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     
     $dados = [];
     foreach ($campos_cliente as $campo) {
-        $dados[$campo] = isset($_POST[$campo . '_edit']) ? trim($_POST[$campo . '_edit']) : null;
+        if ($campo === 'email' || $campo === 'email_danfe') {
+            $dados[$campo] = isset($_POST[$campo . '_edit']) ? strtolower(trim($_POST[$campo . '_edit'])) : null;
+        } else {
+            $dados[$campo] = isset($_POST[$campo . '_edit']) ? trim($_POST[$campo . '_edit']) : null;
+        }
     }
     
     try {
@@ -302,8 +322,11 @@ if ($start < 1) $start = 1;
                                 <svg class="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
                                 <?= htmlspecialchars($c['razao_social']) ?>
                             </td>
-                            <td class="py-3 px-3 text-gray-600"><?= htmlspecialchars($c['cnpj'] ?: $c['cpf']) ?></td>
-                            <td class="py-3 px-3 text-gray-600"><?= htmlspecialchars($c['email']) ?></td>
+                            <!-- Máscara aplicada aqui -->
+                            <td class="py-3 px-3 text-gray-600"><?= formatarCnpjCpf($c['cnpj'] ?: $c['cpf']) ?></td>
+                            
+                            <!-- E-mail forçado em minúsculo -->
+                            <td class="py-3 px-3 text-gray-600"><?= htmlspecialchars(strtolower($c['email'])) ?></td>
                             <td class="py-3 px-3">
                                 <div class="flex items-center justify-center gap-2">
                                     <a href="clientes.php?edit=<?= $c['id'] ?>" class="bg-gray-200 text-gray-700 hover:bg-gray-300 px-3 py-1.5 rounded transition-colors text-xs font-medium">Editar</a>
@@ -364,8 +387,8 @@ if ($start < 1) $start = 1;
     <!-- ========================================== -->
     <!-- MODAL 1: NOVO CLIENTE (Passo 1)            -->
     <!-- ========================================== -->
-    <div id="modalNovoCliente" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-[1200px] p-6 relative my-8">
+    <div id="modalNovoCliente" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-[1200px] p-4 md:p-6 relative my-8">
             <button onclick="document.getElementById('modalNovoCliente').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</button>
             <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Adicionar Novo Cliente (Passo 1 de 3)</h2>
             
@@ -489,8 +512,8 @@ if ($start < 1) $start = 1;
     <!-- MODAL 2: ENDEREÇO DE COBRANÇA (Passo 2)    -->
     <!-- ========================================== -->
     <?php if($cliente_cobranca): ?>
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative my-8">
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-4 md:p-6 relative my-8">
             <a href="clientes.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</a>
             <h2 class="text-xl font-bold text-gray-800 mb-1">Endereço de Cobrança</h2>
             <p class="text-sm text-gray-600 mb-4">Cliente: <strong><?= htmlspecialchars($cliente_cobranca['razao_social']) ?></strong> (Passo 2 de 3)</p>
@@ -528,8 +551,8 @@ if ($start < 1) $start = 1;
     <!-- MODAL 3: ENDEREÇO DE ENTREGA (Passo 3)     -->
     <!-- ========================================== -->
     <?php if($cliente_entrega): ?>
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative my-8">
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-4 md:p-6 relative my-8">
             <a href="clientes.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</a>
             <h2 class="text-xl font-bold text-gray-800 mb-1">Endereço de Entrega</h2>
             <p class="text-sm text-gray-600 mb-4">Cliente: <strong><?= htmlspecialchars($cliente_entrega['razao_social']) ?></strong> (Passo 3 de 3)</p>
@@ -564,11 +587,11 @@ if ($start < 1) $start = 1;
     <?php endif; ?>
 
     <!-- ========================================== -->
-    <!-- MODAL 4: EDIÇÃO COMPLETA                   -->
+    <!-- MODAL 4: EDIÇÃO COMPLETA COM ABAS          -->
     <!-- ========================================== -->
     <?php if($cliente_edicao): ?>
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-[1200px] p-6 relative my-8">
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-[1200px] p-4 md:p-6 relative my-8">
             <a href="clientes.php" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 font-bold text-2xl leading-none">&times;</a>
             <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Editar Cliente Completo</h2>
             
@@ -576,91 +599,108 @@ if ($start < 1) $start = 1;
                 <input type="hidden" name="action" value="editar">
                 <input type="hidden" name="id" value="<?= $cliente_edicao['id'] ?>">
                 
-                <!-- Dados Principais -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-5"><label class="form-label block mb-1">Cliente</label><input type="text" name="razao_social_edit" required value="<?= htmlspecialchars($cliente_edicao['razao_social']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold uppercase"></div>
-                    <div class="md:col-span-2"><label class="form-label block mb-1">CPF</label><input type="text" name="cpf_edit" id="cpf_edit" value="<?= htmlspecialchars($cliente_edicao['cpf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1 text-brand-blue">CNPJ</label><input type="text" name="cnpj_edit" id="cnpj_edit" value="<?= htmlspecialchars($cliente_edicao['cnpj']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold transition-colors duration-300"></div>
-                    <div class="md:col-span-2"><label class="form-label block mb-1">Insc. Est.</label><input type="text" name="insc_estadual_edit" value="<?= htmlspecialchars($cliente_edicao['insc_estadual']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                <!-- NAVEGAÇÃO DAS ABAS -->
+                <div class="border-b border-gray-200 mb-4">
+                    <ul class="flex flex-wrap -mb-px text-sm font-bold text-center text-gray-500">
+                        <li class="mr-2">
+                            <button type="button" onclick="openTab(event, 'tab-dados')" class="tablinks inline-block p-3 border-b-2 border-brand-blue text-brand-blue rounded-t-lg">1. Dados do Cliente</button>
+                        </li>
+                        <li class="mr-2">
+                            <button type="button" onclick="openTab(event, 'tab-cobranca')" class="tablinks inline-block p-3 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 rounded-t-lg">2. Endereço de Cobrança</button>
+                        </li>
+                        <li class="mr-2">
+                            <button type="button" onclick="openTab(event, 'tab-entrega')" class="tablinks inline-block p-3 border-b-2 border-transparent hover:text-gray-700 hover:border-gray-300 rounded-t-lg">3. Endereço de Entrega</button>
+                        </li>
+                    </ul>
                 </div>
 
-                <!-- Contatos -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Contato</label><input type="text" name="contato_nome_edit" value="<?= htmlspecialchars($cliente_edicao['contato_nome']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Celular (Contato)</label><input type="text" name="contato_celular_edit" id="contato_celular_edit" value="<?= htmlspecialchars($cliente_edicao['contato_celular']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Depto</label><input type="text" name="contato_departamento_edit" value="<?= htmlspecialchars($cliente_edicao['contato_departamento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Telefone</label><input type="text" name="telefone_edit" id="telefone_edit" value="<?= htmlspecialchars($cliente_edicao['telefone']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Celular Principal</label><input type="text" name="celular_edit" id="celular_edit" value="<?= htmlspecialchars($cliente_edicao['celular']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">WhatsApp</label><input type="text" name="whatsapp_edit" id="whatsapp_edit" value="<?= htmlspecialchars($cliente_edicao['whatsapp']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">E-mail</label><input type="email" name="email_edit" value="<?= htmlspecialchars($cliente_edicao['email']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">DANFE para</label><input type="email" name="email_danfe_edit" value="<?= htmlspecialchars($cliente_edicao['email_danfe']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                </div>
-
-                <!-- Bloco do checkbox "Também é Fornecedor" foi REMOVIDO daqui -->
-
-                <!-- Endereço Principal -->
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 border-t border-gray-100 pt-4 mt-2">
-                    <div class="md:col-span-2"><label class="form-label block mb-1">CEP</label><input type="text" name="cep_edit" id="cep_edit" value="<?= htmlspecialchars($cliente_edicao['cep']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-6"><label class="form-label block mb-1">Endereço</label><input type="text" name="endereco_edit" id="endereco_edit" value="<?= htmlspecialchars($cliente_edicao['endereco']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-1"><label class="form-label block mb-1">Nº</label><input type="text" name="numero_edit" id="numero_edit" value="<?= htmlspecialchars($cliente_edicao['numero']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                    <div class="md:col-span-3"><label class="form-label block mb-1">Compl.</label><input type="text" name="complemento_edit" id="complemento_edit" value="<?= htmlspecialchars($cliente_edicao['complemento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                     <div class="md:col-span-4"><label class="form-label block mb-1">Bairro</label><input type="text" name="bairro_edit" id="bairro_edit" value="<?= htmlspecialchars($cliente_edicao['bairro']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                     <div class="md:col-span-6"><label class="form-label block mb-1">Cidade</label><input type="text" name="cidade_edit" id="cidade_edit" value="<?= htmlspecialchars($cliente_edicao['cidade']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                     <div class="md:col-span-2"><label class="form-label block mb-1">UF</label><input type="text" name="uf_edit" id="uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['uf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
-                </div>
-
-                <!-- Endereços de Cobrança e Entrega -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                    <div class="border border-gray-200 p-3 rounded-lg bg-gray-50">
-                        <h3 class="form-label text-black mb-2">Endereço de Cobrança</h3>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-4"><input type="text" name="cobranca_cep_edit" id="cobranca_cep_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_cep']) ?>" placeholder="CEP" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-8"><input type="text" name="cobranca_endereco_edit" id="cobranca_endereco_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_endereco']) ?>" placeholder="Endereço" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-4"><input type="text" name="cobranca_numero_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_numero']) ?>" placeholder="Nº" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-8"><input type="text" name="cobranca_complemento_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_complemento']) ?>" placeholder="Complemento" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-6"><input type="text" name="cobranca_bairro_edit" id="cobranca_bairro_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_bairro']) ?>" placeholder="Bairro" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-6"><input type="text" name="cobranca_cidade_edit" id="cobranca_cidade_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_cidade']) ?>" placeholder="Cidade" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2">
-                            <div class="col-span-2"><input type="text" name="cobranca_uf_edit" id="cobranca_uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['cobranca_uf']) ?>" placeholder="UF" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
+                <!-- CONTEÚDO DA ABA 1: DADOS DO CLIENTE -->
+                <div id="tab-dados" class="tabcontent block space-y-4">
+                    <!-- Dados Principais -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                        <div class="md:col-span-5"><label class="form-label block mb-1">Cliente</label><input type="text" name="razao_social_edit" required value="<?= htmlspecialchars($cliente_edicao['razao_social']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold uppercase"></div>
+                        <div class="md:col-span-2"><label class="form-label block mb-1">CPF</label><input type="text" name="cpf_edit" id="cpf_edit" value="<?= htmlspecialchars($cliente_edicao['cpf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1 text-brand-blue">CNPJ</label><input type="text" name="cnpj_edit" id="cnpj_edit" value="<?= htmlspecialchars($cliente_edicao['cnpj']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold transition-colors duration-300"></div>
+                        <div class="md:col-span-2"><label class="form-label block mb-1">Insc. Est.</label><input type="text" name="insc_estadual_edit" value="<?= htmlspecialchars($cliente_edicao['insc_estadual']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
                     </div>
-                    <div class="border border-gray-200 p-3 rounded-lg bg-gray-50">
-                        <h3 class="form-label text-black mb-2">Endereço de Entrega</h3>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-4"><input type="text" name="entrega_cep_edit" id="entrega_cep_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_cep']) ?>" placeholder="CEP" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-8"><input type="text" name="entrega_endereco_edit" id="entrega_endereco_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_endereco']) ?>" placeholder="Endereço" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-4"><input type="text" name="entrega_numero_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_numero']) ?>" placeholder="Nº" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-8"><input type="text" name="entrega_complemento_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_complemento']) ?>" placeholder="Complemento" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2 mb-2">
-                            <div class="col-span-6"><input type="text" name="entrega_bairro_edit" id="entrega_bairro_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_bairro']) ?>" placeholder="Bairro" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                            <div class="col-span-6"><input type="text" name="entrega_cidade_edit" id="entrega_cidade_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_cidade']) ?>" placeholder="Cidade" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
-                        <div class="grid grid-cols-12 gap-2">
-                            <div class="col-span-2"><input type="text" name="entrega_uf_edit" id="entrega_uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['entrega_uf']) ?>" placeholder="UF" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-semibold"></div>
-                        </div>
+
+                    <!-- Contatos -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Contato</label><input type="text" name="contato_nome_edit" value="<?= htmlspecialchars($cliente_edicao['contato_nome']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Celular (Contato)</label><input type="text" name="contato_celular_edit" id="contato_celular_edit" value="<?= htmlspecialchars($cliente_edicao['contato_celular']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Depto</label><input type="text" name="contato_departamento_edit" value="<?= htmlspecialchars($cliente_edicao['contato_departamento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Telefone</label><input type="text" name="telefone_edit" id="telefone_edit" value="<?= htmlspecialchars($cliente_edicao['telefone']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Celular Principal</label><input type="text" name="celular_edit" id="celular_edit" value="<?= htmlspecialchars($cliente_edicao['celular']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">WhatsApp</label><input type="text" name="whatsapp_edit" id="whatsapp_edit" value="<?= htmlspecialchars($cliente_edicao['whatsapp']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">E-mail</label><input type="email" name="email_edit" value="<?= htmlspecialchars(strtolower($cliente_edicao['email'])) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">DANFE para</label><input type="email" name="email_danfe_edit" value="<?= htmlspecialchars(strtolower($cliente_edicao['email_danfe'])) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold lowercase"></div>
+                    </div>
+
+                    <!-- Endereço Principal -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3 border-t border-gray-100 pt-4 mt-2">
+                        <div class="md:col-span-2"><label class="form-label block mb-1">CEP</label><input type="text" name="cep_edit" id="cep_edit" value="<?= htmlspecialchars($cliente_edicao['cep']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-6"><label class="form-label block mb-1">Endereço</label><input type="text" name="endereco_edit" id="endereco_edit" value="<?= htmlspecialchars($cliente_edicao['endereco']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-1"><label class="form-label block mb-1">Nº</label><input type="text" name="numero_edit" id="numero_edit" value="<?= htmlspecialchars($cliente_edicao['numero']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        <div class="md:col-span-3"><label class="form-label block mb-1">Compl.</label><input type="text" name="complemento_edit" id="complemento_edit" value="<?= htmlspecialchars($cliente_edicao['complemento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                         <div class="md:col-span-4"><label class="form-label block mb-1">Bairro</label><input type="text" name="bairro_edit" id="bairro_edit" value="<?= htmlspecialchars($cliente_edicao['bairro']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                         <div class="md:col-span-6"><label class="form-label block mb-1">Cidade</label><input type="text" name="cidade_edit" id="cidade_edit" value="<?= htmlspecialchars($cliente_edicao['cidade']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                         <div class="md:col-span-2"><label class="form-label block mb-1">UF</label><input type="text" name="uf_edit" id="uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['uf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                    </div>
+
+                    <!-- Observações -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        <div><label class="form-label block mb-1">Observação</label><textarea name="observacao_edit" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded font-semibold"><?= htmlspecialchars($cliente_edicao['observacao']) ?></textarea></div>
+                        <div><label class="form-label block mb-1">Material Comercializado</label><textarea name="material_comercializado_edit" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded font-semibold"><?= htmlspecialchars($cliente_edicao['material_comercializado']) ?></textarea></div>
                     </div>
                 </div>
 
-                <!-- Observações -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label class="form-label block mb-1">Observação</label><textarea name="observacao_edit" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded font-semibold"><?= htmlspecialchars($cliente_edicao['observacao']) ?></textarea></div>
-                    <div><label class="form-label block mb-1">Material Comercializado</label><textarea name="material_comercializado_edit" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded font-semibold"><?= htmlspecialchars($cliente_edicao['material_comercializado']) ?></textarea></div>
+                <!-- CONTEÚDO DA ABA 2: COBRANÇA -->
+                <div id="tab-cobranca" class="tabcontent hidden space-y-4">
+                    <div class="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Endereço de Cobrança</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+                            <div class="md:col-span-3"><label class="form-label block mb-1">CEP</label><input type="text" name="cobranca_cep_edit" id="cobranca_cep_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_cep']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-7"><label class="form-label block mb-1">Endereço</label><input type="text" name="cobranca_endereco_edit" id="cobranca_endereco_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_endereco']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-2"><label class="form-label block mb-1">Nº</label><input type="text" name="cobranca_numero_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_numero']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+                            <div class="md:col-span-4"><label class="form-label block mb-1">Bairro</label><input type="text" name="cobranca_bairro_edit" id="cobranca_bairro_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_bairro']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-6"><label class="form-label block mb-1">Cidade</label><input type="text" name="cobranca_cidade_edit" id="cobranca_cidade_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_cidade']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-2"><label class="form-label block mb-1">UF</label><input type="text" name="cobranca_uf_edit" id="cobranca_uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['cobranca_uf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                            <div class="md:col-span-8"><label class="form-label block mb-1">Complemento</label><input type="text" name="cobranca_complemento_edit" value="<?= htmlspecialchars($cliente_edicao['cobranca_complemento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="pt-4 border-t border-gray-200 mt-4 flex justify-end gap-3">
+                <!-- CONTEÚDO DA ABA 3: ENTREGA -->
+                <div id="tab-entrega" class="tabcontent hidden space-y-4">
+                    <div class="border border-gray-200 p-4 rounded-lg bg-gray-50">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Endereço de Entrega</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+                            <div class="md:col-span-3"><label class="form-label block mb-1">CEP</label><input type="text" name="entrega_cep_edit" id="entrega_cep_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_cep']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-7"><label class="form-label block mb-1">Endereço</label><input type="text" name="entrega_endereco_edit" id="entrega_endereco_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_endereco']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-2"><label class="form-label block mb-1">Nº</label><input type="text" name="entrega_numero_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_numero']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+                            <div class="md:col-span-4"><label class="form-label block mb-1">Bairro</label><input type="text" name="entrega_bairro_edit" id="entrega_bairro_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_bairro']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-6"><label class="form-label block mb-1">Cidade</label><input type="text" name="entrega_cidade_edit" id="entrega_cidade_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_cidade']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                            <div class="md:col-span-2"><label class="form-label block mb-1">UF</label><input type="text" name="entrega_uf_edit" id="entrega_uf_edit" maxlength="2" value="<?= htmlspecialchars($cliente_edicao['entrega_uf']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                            <div class="md:col-span-8"><label class="form-label block mb-1">Complemento</label><input type="text" name="entrega_complemento_edit" value="<?= htmlspecialchars($cliente_edicao['entrega_complemento']) ?>" class="w-full px-3 py-1.5 border border-gray-300 rounded font-semibold"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BOTÕES FIXOS NO RODAPÉ -->
+                <div class="pt-4 border-t border-gray-200 mt-6 flex justify-end gap-3">
                     <a href="clientes.php" class="bg-gray-200 text-gray-700 hover:bg-gray-300 font-semibold py-2 px-6 rounded-lg transition-colors text-sm flex items-center">Fechar</a>
                     <button type="submit" class="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all hover:bg-blue-900 text-sm">Salvar Alterações</button>
                 </div>
@@ -673,6 +713,29 @@ if ($start < 1) $start = 1;
 
     <!-- SCRIPT PARA MÁSCARAS, VIACEP E API CNPJ -->
     <script>
+        // Função para alternar as abas no Modal de Edição
+        function openTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            
+            // Esconde todas as abas
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            
+            // Remove a classe ativa de todos os botões
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" border-brand-blue text-brand-blue", " border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300");
+            }
+            
+            // Mostra a aba atual
+            document.getElementById(tabName).style.display = "block";
+            
+            // Adiciona a classe ativa ao botão clicado
+            evt.currentTarget.className = evt.currentTarget.className.replace(" border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300", " border-brand-blue text-brand-blue");
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             
             async function buscarCEP(cepValue, targetFields) {
@@ -727,7 +790,7 @@ if ($start < 1) $start = 1;
                     setVal(idCidade, data.municipio);
                     setVal(idUf, data.uf);
                     if (data.ddd_telefone_1) setVal(idTelefone, data.ddd_telefone_1);
-                    if (data.email) setVal(idEmail, data.email);
+                    if (data.email) setVal(idEmail, data.email.toLowerCase());
 
                     cnpjInput.classList.remove('api-loading');
                     cnpjInput.classList.add('api-success');
